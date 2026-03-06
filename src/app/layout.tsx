@@ -3,6 +3,7 @@ import "./globals.css";
 import Navigation from "@/components/Navigation";
 import MobileTabBar from "@/components/MobileTabBar";
 import ServiceWorkerRegistrar from "@/components/ServiceWorkerRegistrar";
+import { AuthProvider } from "@/components/AuthProvider";
 
 export const metadata: Metadata = {
   title: "Music is Yours - AI 음악 창작 플랫폼",
@@ -31,10 +32,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
       </head>
       <body className="min-h-screen bg-dark-300">
-        <ServiceWorkerRegistrar />
-        <Navigation />
-        <main className="pt-16 pb-20 md:pb-0">{children}</main>
-        <MobileTabBar />
+        <AuthProvider>
+          <ServiceWorkerRegistrar />
+          <Navigation />
+          <main className="pt-16 pb-20 md:pb-0">{children}</main>
+          <MobileTabBar />
+        </AuthProvider>
       </body>
     </html>
   );
