@@ -1,0 +1,7 @@
+node_modules
+.next
+.git
+ios
+android
+*.md
+.env*

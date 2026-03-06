@@ -83,3 +83,42 @@ body {
   background: rgba(124, 58, 237, 0.3);
   border-radius: 3px;
 }
+
+/* Safe area support for iOS notch/island */
+:root {
+  --sat: env(safe-area-inset-top);
+  --sab: env(safe-area-inset-bottom);
+  --sal: env(safe-area-inset-left);
+  --sar: env(safe-area-inset-right);
+}
+
+.safe-area-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Touch optimizations for mobile */
+@media (hover: none) and (pointer: coarse) {
+  .glass-button {
+    min-height: 44px;
+  }
+
+  .genre-chip {
+    min-height: 36px;
+  }
+}
+
+/* Prevent pull-to-refresh on mobile app */
+html, body {
+  overscroll-behavior-y: none;
+}
+
+/* Disable text selection on native feel elements */
+nav, .glass-button, .genre-chip {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
