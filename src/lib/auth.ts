@@ -173,7 +173,7 @@ export async function register(req: RegisterRequest): Promise<AuthResponse> {
     email,
     name,
     tier: "free",
-    credits: 5,
+    credits: 10,
     createdAt: new Date().toISOString(),
     passwordHash,
   };

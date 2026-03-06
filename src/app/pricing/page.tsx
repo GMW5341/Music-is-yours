@@ -11,11 +11,21 @@ import {
   simulateUpgrade,
   simulateCreditPurchase,
 } from "@/lib/subscription";
+import { useAuth } from "@/components/AuthProvider";
+import Link from "next/link";
 
 export default function PricingPage() {
+  const { isAuthenticated } = useAuth();
   const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
-  const [currentTier, setCurrentTier] = useState<SubscriptionTier>(getUserSubscription().tier);
+  const [currentTier, setCurrentTier] = useState<SubscriptionTier>(() => {
+    try {
+      return getUserSubscription().tier;
+    } catch {
+      return "free";
+    }
+  });
   const [showConfirm, setShowConfirm] = useState<string | null>(null);
+  const [purchasedCredits, setPurchasedCredits] = useState<string | null>(null);
 
   const handleUpgrade = (tierId: SubscriptionTier) => {
     simulateUpgrade(tierId, billingCycle);
@@ -25,20 +35,46 @@ export default function PricingPage() {
 
   const handleBuyCredits = (packId: string) => {
     simulateCreditPurchase(packId);
-    setShowConfirm(null);
+    setPurchasedCredits(packId);
+    setTimeout(() => setPurchasedCredits(null), 2000);
   };
 
   return (
-    <div className="min-h-screen px-4 py-6 max-w-6xl mx-auto">
+    <div className="min-h-screen px-4 py-6 max-w-5xl mx-auto">
       {/* Header */}
       <div className="text-center mb-10">
         <h1 className="text-3xl sm:text-4xl font-bold gradient-text mb-3">
-          당신의 음악, 더 크게
+          무료로 충분히 즐기세요
         </h1>
-        <p className="text-gray-400 text-sm sm:text-base max-w-xl mx-auto">
-          무료로 시작하고, 필요할 때 업그레이드하세요.
-          모든 플랜은 웹과 앱에서 동일하게 사용 가능합니다.
+        <p className="text-gray-400 text-sm sm:text-base max-w-lg mx-auto">
+          매달 15곡까지 무료로 만들 수 있어요. 더 많이 만들고 싶을 때만 업그레이드하면 됩니다.
         </p>
+      </div>
+
+      {/* Free tier highlight */}
+      <div className="glass-card p-6 mb-10 border-green-500/20 bg-green-500/5">
+        <div className="flex flex-col sm:flex-row items-center gap-4">
+          <div className="text-4xl">🎵</div>
+          <div className="flex-1 text-center sm:text-left">
+            <h2 className="text-lg font-bold text-white mb-1">무료 플랜으로 할 수 있는 것들</h2>
+            <div className="flex flex-wrap gap-x-6 gap-y-1 justify-center sm:justify-start text-sm text-gray-300">
+              <span>매달 15곡 작곡</span>
+              <span>모든 장르 사용</span>
+              <span>6트랙 레이어</span>
+              <span>60초 곡 길이</span>
+              <span>커뮤니티 공유</span>
+              <span>가입 시 보너스 10크레딧</span>
+            </div>
+          </div>
+          {!isAuthenticated && (
+            <Link
+              href="/auth"
+              className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 text-white text-sm font-medium hover:from-purple-500 hover:to-pink-500 transition-all whitespace-nowrap"
+            >
+              무료로 시작하기
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* Billing Toggle */}
@@ -72,7 +108,8 @@ export default function PricingPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-16">
         {SUBSCRIPTION_PLANS.map((plan) => {
           const isCurrentPlan = currentTier === plan.id;
-          const price = billingCycle === "monthly" ? plan.monthlyPrice : plan.yearlyMonthly;
+          const price =
+            billingCycle === "monthly" ? plan.monthlyPrice : plan.yearlyMonthly;
 
           return (
             <div
@@ -83,7 +120,7 @@ export default function PricingPage() {
             >
               {plan.popular && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] px-3 py-1 rounded-full bg-primary-500 text-white font-bold">
-                  MOST POPULAR
+                  인기
                 </div>
               )}
               {isCurrentPlan && (
@@ -94,15 +131,22 @@ export default function PricingPage() {
 
               <div className="text-center mb-4">
                 <span className="text-3xl">{plan.icon}</span>
-                <h3 className="text-lg font-bold text-white mt-2">{plan.nameKo}</h3>
+                <h3 className="text-lg font-bold text-white mt-2">
+                  {plan.nameKo}
+                </h3>
                 <p className="text-[11px] text-gray-500">{plan.tagline}</p>
               </div>
 
               <div className="text-center mb-4">
-                <div className="text-2xl font-bold" style={{ color: plan.color }}>
+                <div
+                  className="text-2xl font-bold"
+                  style={{ color: plan.color }}
+                >
                   {formatKRW(price)}
                 </div>
-                {price > 0 && <div className="text-[10px] text-gray-600">/ 월</div>}
+                {price > 0 && (
+                  <div className="text-[10px] text-gray-600">/ 월</div>
+                )}
                 {billingCycle === "yearly" && plan.yearlyPrice > 0 && (
                   <div className="text-[10px] text-gray-600 mt-1">
                     연 {formatKRW(plan.yearlyPrice)}
@@ -113,15 +157,24 @@ export default function PricingPage() {
               {/* Features */}
               <div className="flex-1 space-y-2 mb-4">
                 <Feature
-                  text={plan.features.compositionsPerMonth === -1 ? "무제한 작곡" : `월 ${plan.features.compositionsPerMonth}곡 작곡`}
+                  text={
+                    plan.features.compositionsPerMonth === -1
+                      ? "무제한 작곡"
+                      : `월 ${plan.features.compositionsPerMonth}곡 작곡`
+                  }
                   included
+                  highlight={plan.id === "free"}
                 />
                 <Feature
                   text={`최대 ${plan.features.maxTrackLayers}트랙 레이어`}
                   included
                 />
                 <Feature
-                  text={plan.features.genresAvailable === -1 ? "전체 31개 장르" : `${plan.features.genresAvailable}개 장르`}
+                  text={
+                    plan.features.genresAvailable === -1
+                      ? "전체 장르"
+                      : `${plan.features.genresAvailable}개 장르`
+                  }
                   included
                 />
                 <Feature
@@ -129,43 +182,41 @@ export default function PricingPage() {
                   included
                 />
                 <Feature
-                  text={plan.features.referenceTracks === -1 ? "무제한 레퍼런스" : `레퍼런스 ${plan.features.referenceTracks}곡`}
-                  included
-                />
-                <Feature
                   text="AI 심사 상세 피드백"
                   included={plan.features.aiJudgeDetailed}
                 />
                 <Feature
-                  text="개인화 AI 파인튜닝"
+                  text="고음질 내보내기 (WAV/FLAC)"
+                  included={plan.features.exportFormats.length > 1}
+                />
+                <Feature
+                  text="개인화 AI 튜닝"
                   included={plan.features.customAITraining}
                 />
                 <Feature
-                  text="상업적 이용 라이선스"
+                  text="상업적 이용"
                   included={plan.features.commercialLicense}
-                />
-                <Feature
-                  text="우선 생성 큐"
-                  included={plan.features.priorityGeneration}
-                />
-                <Feature
-                  text="API 접근"
-                  included={plan.features.apiAccess}
                 />
               </div>
 
               <button
-                onClick={() => isCurrentPlan ? null : setShowConfirm(plan.id)}
+                onClick={() =>
+                  isCurrentPlan ? null : setShowConfirm(plan.id)
+                }
                 disabled={isCurrentPlan}
                 className={`w-full py-2.5 rounded-xl font-bold text-sm transition-all ${
                   isCurrentPlan
                     ? "bg-green-500/10 text-green-400 cursor-default"
                     : plan.popular
-                      ? "bg-gradient-to-r from-primary-500 to-accent-500 text-white hover:from-primary-400 hover:to-accent-400"
-                      : "glass-button text-white"
+                    ? "bg-gradient-to-r from-primary-500 to-accent-500 text-white hover:from-primary-400 hover:to-accent-400"
+                    : "glass-button text-white"
                 }`}
               >
-                {isCurrentPlan ? "현재 사용 중" : plan.monthlyPrice === 0 ? "무료 시작" : "업그레이드"}
+                {isCurrentPlan
+                  ? "현재 사용 중"
+                  : plan.monthlyPrice === 0
+                  ? "무료 시작"
+                  : "업그레이드"}
               </button>
             </div>
           );
@@ -174,69 +225,75 @@ export default function PricingPage() {
 
       {/* Credit Packs */}
       <div className="mb-16">
-        <h2 className="text-xl font-bold text-white text-center mb-2">크레딧 충전</h2>
+        <h2 className="text-xl font-bold text-white text-center mb-2">
+          크레딧 충전
+        </h2>
         <p className="text-gray-500 text-sm text-center mb-6">
-          월간 한도를 넘겼을 때 크레딧으로 추가 작곡하세요. 1크레딧 = 1곡.
+          이번 달 곡을 다 만들었는데 더 하고 싶다면? 크레딧으로 추가 작곡하세요.
         </p>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          {CREDIT_PACKS.map((pack) => (
-            <div
-              key={pack.id}
-              className={`glass-card p-4 text-center ${pack.popular ? "border-primary-500/30" : ""}`}
-            >
-              {pack.popular && (
-                <div className="text-[9px] text-primary-300 font-bold mb-1">BEST VALUE</div>
-              )}
-              <div className="text-2xl font-bold text-white">{pack.credits}</div>
-              <div className="text-xs text-gray-500">크레딧</div>
-              {pack.bonus > 0 && (
-                <div className="text-[10px] text-green-400 mt-1">+{pack.bonus} 보너스</div>
-              )}
-              <div className="text-sm font-bold text-primary-300 mt-2">{formatKRW(pack.price)}</div>
-              <div className="text-[10px] text-gray-600">
-                개당 {formatKRW(Math.round(pack.price / (pack.credits + pack.bonus)))}
-              </div>
-              <button
-                onClick={() => handleBuyCredits(pack.id)}
-                className="w-full mt-3 py-2 rounded-lg glass-button text-xs font-medium"
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-2xl mx-auto">
+          {CREDIT_PACKS.map((pack) => {
+            const justPurchased = purchasedCredits === pack.id;
+            return (
+              <div
+                key={pack.id}
+                className={`glass-card p-4 text-center transition-all ${
+                  pack.popular ? "border-primary-500/30" : ""
+                } ${justPurchased ? "border-green-500/50 bg-green-500/5" : ""}`}
               >
-                구매
-              </button>
-            </div>
-          ))}
+                {pack.popular && !justPurchased && (
+                  <div className="text-[9px] text-primary-300 font-bold mb-1">
+                    BEST
+                  </div>
+                )}
+                {justPurchased && (
+                  <div className="text-[9px] text-green-400 font-bold mb-1">
+                    충전 완료!
+                  </div>
+                )}
+                <div className="text-2xl font-bold text-white">
+                  {pack.credits}
+                </div>
+                <div className="text-xs text-gray-500">크레딧</div>
+                {pack.bonus > 0 && (
+                  <div className="text-[10px] text-green-400 mt-1">
+                    +{pack.bonus} 보너스
+                  </div>
+                )}
+                <div className="text-sm font-bold text-primary-300 mt-2">
+                  {formatKRW(pack.price)}
+                </div>
+                <button
+                  onClick={() => handleBuyCredits(pack.id)}
+                  className="w-full mt-3 py-2 rounded-lg glass-button text-xs font-medium"
+                >
+                  충전
+                </button>
+              </div>
+            );
+          })}
         </div>
       </div>
 
-      {/* B2B Section */}
-      <div className="glass-card p-8 text-center mb-16">
-        <h2 className="text-xl font-bold text-white mb-2">기업/스튜디오용 맞춤 솔루션</h2>
-        <p className="text-gray-400 text-sm max-w-lg mx-auto mb-4">
-          게임 사운드트랙, 광고 음악, 콘텐츠 제작사를 위한 B2B API 라이선싱.
-          대량 생성, 전용 모델 학습, SLA 보장, 온프레미스 배포 가능.
-        </p>
-        <button className="glass-button text-sm font-bold px-6 py-3">
-          영업팀 문의하기
-        </button>
-      </div>
-
-      {/* Business Model Summary */}
-      <div className="glass-card p-6 mb-8">
-        <h3 className="text-sm font-bold text-white mb-4">수익 모델 구조</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <RevenueCard
-            title="구독 수익 (SaaS)"
-            percent="60%"
-            desc="Free → Starter → Pro → Studio 전환율 최적화. 연간 결제 유도로 LTV 극대화."
+      {/* FAQ */}
+      <div className="mb-16 max-w-2xl mx-auto">
+        <h2 className="text-xl font-bold text-white text-center mb-6">자주 묻는 질문</h2>
+        <div className="space-y-3">
+          <FaqItem
+            q="무료로 정말 충분히 쓸 수 있나요?"
+            a="네! 매달 15곡을 만들 수 있고 모든 장르를 사용할 수 있어요. 친구들이랑 즐기기에 충분합니다. 가입하면 보너스 10크레딧도 드려요."
           />
-          <RevenueCard
-            title="크레딧 인앱결제"
-            percent="25%"
-            desc="Free 사용자의 월 한도 초과 시 크레딧 구매. 경쟁 시즌/이벤트 시 수요 급증."
+          <FaqItem
+            q="크레딧은 뭔가요?"
+            a="이번 달 무료 작곡 횟수를 다 쓰면, 크레딧 1개로 곡 1개를 추가로 만들 수 있어요. 안 쓰면 계속 남아있습니다."
           />
-          <RevenueCard
-            title="B2B API & 라이선싱"
-            percent="15%"
-            desc="게임사/광고사/콘텐츠 기업의 대량 음악 생성 API. 전용 모델 학습 프리미엄."
+          <FaqItem
+            q="언제 업그레이드하면 좋나요?"
+            a="음악을 더 진지하게 만들고 싶을 때요. Pro 플랜부터 곡 길이 5분, 12트랙, 고음질 내보내기, 상업적 이용이 가능합니다."
+          />
+          <FaqItem
+            q="구독을 취소하면 어떻게 되나요?"
+            a="무료 플랜으로 돌아갑니다. 이미 만든 곡은 그대로 유지되고 남은 크레딧도 사라지지 않아요."
           />
         </div>
       </div>
@@ -245,9 +302,17 @@ export default function PricingPage() {
       {showConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="glass-card p-6 w-full max-w-sm text-center">
-            <h3 className="text-lg font-bold text-white mb-2">플랜 변경 확인</h3>
+            <h3 className="text-lg font-bold text-white mb-2">
+              플랜 변경 확인
+            </h3>
             <p className="text-sm text-gray-400 mb-4">
-              {SUBSCRIPTION_PLANS.find((p) => p.id === showConfirm)?.nameKo} 플랜으로 변경하시겠습니까?
+              {
+                SUBSCRIPTION_PLANS.find((p) => p.id === showConfirm)?.nameKo
+              }{" "}
+              플랜으로 변경하시겠습니까?
+            </p>
+            <p className="text-xs text-gray-600 mb-4">
+              (데모 환경에서는 실제 결제가 발생하지 않습니다)
             </p>
             <div className="flex gap-3">
               <button
@@ -257,7 +322,9 @@ export default function PricingPage() {
                 취소
               </button>
               <button
-                onClick={() => handleUpgrade(showConfirm as SubscriptionTier)}
+                onClick={() =>
+                  handleUpgrade(showConfirm as SubscriptionTier)
+                }
                 className="flex-1 py-2 rounded-xl bg-gradient-to-r from-primary-500 to-accent-500 text-white font-bold text-sm"
               >
                 변경하기
@@ -270,25 +337,51 @@ export default function PricingPage() {
   );
 }
 
-function Feature({ text, included }: { text: string; included: boolean }) {
+function Feature({
+  text,
+  included,
+  highlight,
+}: {
+  text: string;
+  included: boolean;
+  highlight?: boolean;
+}) {
   return (
     <div className="flex items-center gap-2 text-xs">
       <span className={included ? "text-green-400" : "text-gray-700"}>
         {included ? "✓" : "—"}
       </span>
-      <span className={included ? "text-gray-300" : "text-gray-700"}>{text}</span>
+      <span
+        className={
+          included
+            ? highlight
+              ? "text-green-300 font-medium"
+              : "text-gray-300"
+            : "text-gray-700"
+        }
+      >
+        {text}
+      </span>
     </div>
   );
 }
 
-function RevenueCard({ title, percent, desc }: { title: string; percent: string; desc: string }) {
+function FaqItem({ q, a }: { q: string; a: string }) {
+  const [open, setOpen] = useState(false);
   return (
-    <div className="p-4 rounded-xl bg-dark-100/50 border border-white/5">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-bold text-white">{title}</span>
-        <span className="text-lg font-bold gradient-text">{percent}</span>
-      </div>
-      <p className="text-[11px] text-gray-500 leading-relaxed">{desc}</p>
+    <div className="glass-card overflow-hidden">
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between p-4 text-left"
+      >
+        <span className="text-sm font-medium text-white">{q}</span>
+        <span className="text-gray-500 ml-2">{open ? "−" : "+"}</span>
+      </button>
+      {open && (
+        <div className="px-4 pb-4">
+          <p className="text-sm text-gray-400 leading-relaxed">{a}</p>
+        </div>
+      )}
     </div>
   );
 }

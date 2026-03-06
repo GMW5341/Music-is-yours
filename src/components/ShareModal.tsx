@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { Song, ShareTarget } from "@/types/music";
 import { getContacts, shareSong, generateShareLink, searchContacts } from "@/lib/social";
+import { addCommunityPost } from "@/lib/community-store";
+import { useAuth } from "@/components/AuthProvider";
 
 interface ShareModalProps {
   song: Song;
@@ -10,6 +12,7 @@ interface ShareModalProps {
 }
 
 export default function ShareModal({ song, onClose }: ShareModalProps) {
+  const { user } = useAuth();
   const [tab, setTab] = useState<"contacts" | "community" | "link">("contacts");
   const [searchQuery, setSearchQuery] = useState("");
   const [message, setMessage] = useState("");
@@ -24,6 +27,22 @@ export default function ShareModal({ song, onClose }: ShareModalProps) {
     if (target.targetId) {
       setSharedTo((prev) => [...prev, target.targetId!]);
     }
+  };
+
+  const handleCommunityShare = () => {
+    addCommunityPost({
+      songTitle: song.title,
+      genre: song.genre,
+      bpm: song.bpm,
+      key: song.key,
+      scale: song.scale,
+      trackCount: song.tracks.length,
+      authorId: user?.id || "anonymous",
+      authorName: user?.name || "Anonymous",
+      message,
+    });
+    handleShare({ type: "community" });
+    setSharedTo((prev) => [...prev, "community"]);
   };
 
   const handleCopyLink = () => {
@@ -131,10 +150,7 @@ export default function ShareModal({ song, onClose }: ShareModalProps) {
               커뮤니티에 공유하면 모든 참여자가 당신의 음악을 들을 수 있습니다
             </p>
             <button
-              onClick={() => {
-                handleShare({ type: "community" });
-                setSharedTo((prev) => [...prev, "community"]);
-              }}
+              onClick={handleCommunityShare}
               disabled={sharedTo.includes("community")}
               className={`px-6 py-3 rounded-xl font-bold transition-all ${
                 sharedTo.includes("community")
