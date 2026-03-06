@@ -159,7 +159,7 @@ export default function AdminPage() {
               <div className="glass-card p-6">
                 <h3 className="text-sm font-bold text-white mb-4">장르별 데이터 분포</h3>
                 <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2">
-                  {Object.entries(stats.genreBreakdown)
+                  {(Object.entries(stats.genreBreakdown) as [string, number][])
                     .sort((a, b) => b[1] - a[1])
                     .map(([genre, count]) => (
                       <div

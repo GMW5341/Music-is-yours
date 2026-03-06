@@ -41,7 +41,7 @@ export function detectPlatform(): PlatformInfo {
   const win = window as unknown as Record<string, unknown>;
   const isCapacitor = !!win.Capacitor;
   const capacitorPlatform = isCapacitor
-    ? (win.Capacitor as Record<string, unknown>)?.getPlatform?.() as string
+    ? ((win.Capacitor as Record<string, unknown>)?.getPlatform as (() => string) | undefined)?.() ?? null
     : null;
 
   // PWA detection

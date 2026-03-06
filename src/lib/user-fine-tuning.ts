@@ -363,7 +363,7 @@ export function getPersonalizedParams(
   const emotionKeys = Object.keys(pref.emotionPreference) as (keyof EmotionVector)[];
   const blendedEmotion: EmotionVector = {} as EmotionVector;
   emotionKeys.forEach((k) => {
-    (blendedEmotion as Record<string, number>)[k] =
+    (blendedEmotion as unknown as Record<string, number>)[k] =
       synthesis.emotionTarget[k] * (1 - maturity * 0.4) + pref.emotionPreference[k] * maturity * 0.4;
   });
 
@@ -419,7 +419,7 @@ export function getReferenceAnalysisSummary(userId: string): ReferenceAnalysisSu
   const emotionKeys = Object.keys(dnas[0].emotionVector) as (keyof EmotionVector)[];
   const avgEmotion: EmotionVector = {} as EmotionVector;
   emotionKeys.forEach((k) => {
-    (avgEmotion as Record<string, number>)[k] =
+    (avgEmotion as unknown as Record<string, number>)[k] =
       dnas.reduce((s, d) => s + d.emotionVector[k], 0) / dnas.length;
   });
 
@@ -521,7 +521,7 @@ function updatePreferenceFromDNA(profile: UserMusicProfile, dna: MusicDNA): void
   // 감정 벡터도 EMA
   const emotionKeys = Object.keys(pref.emotionPreference) as (keyof EmotionVector)[];
   emotionKeys.forEach((k) => {
-    (pref.emotionPreference as Record<string, number>)[k] =
+    (pref.emotionPreference as unknown as Record<string, number>)[k] =
       pref.emotionPreference[k] * (1 - alpha) + dna.emotionVector[k] * alpha;
   });
 
@@ -537,7 +537,7 @@ function adjustPref(
   magnitude: number,
   reason: string
 ): void {
-  const pref = profile.preferenceVector as Record<string, unknown>;
+  const pref = profile.preferenceVector as unknown as Record<string, unknown>;
   const current = pref[param];
   if (typeof current === "number") {
     pref[param] = direction === "increase"
