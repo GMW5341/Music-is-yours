@@ -38,15 +38,16 @@ export function detectPlatform(): PlatformInfo {
   }
 
   // Capacitor detection
-  const isCapacitor = !!(window as Record<string, unknown>).Capacitor;
+  const win = window as unknown as Record<string, unknown>;
+  const isCapacitor = !!win.Capacitor;
   const capacitorPlatform = isCapacitor
-    ? ((window as Record<string, unknown>).Capacitor as Record<string, unknown>)?.getPlatform?.() as string
+    ? (win.Capacitor as Record<string, unknown>)?.getPlatform?.() as string
     : null;
 
   // PWA detection
   const isPWA =
     window.matchMedia("(display-mode: standalone)").matches ||
-    (window.navigator as Record<string, unknown>).standalone === true;
+    (window.navigator as unknown as Record<string, unknown>).standalone === true;
 
   // Platform
   let platform: Platform = "web";
