@@ -4,15 +4,26 @@ import { useState } from "react";
 import {
   SUBSCRIPTION_PLANS,
   CREDIT_PACKS,
+  COMPETITION_REWARDS,
   SubscriptionTier,
   BillingCycle,
   formatKRW,
+  formatMinutes,
   getUserSubscription,
   simulateUpgrade,
   simulateCreditPurchase,
 } from "@/lib/subscription";
 import { useAuth } from "@/components/AuthProvider";
 import Link from "next/link";
+
+function formatDuration(seconds: number): string {
+  if (seconds >= 60) {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return secs > 0 ? `${mins}분 ${secs}초` : `${mins}분`;
+  }
+  return `${seconds}초`;
+}
 
 export default function PricingPage() {
   const { isAuthenticated } = useAuth();
@@ -47,7 +58,7 @@ export default function PricingPage() {
           무료로 충분히 즐기세요
         </h1>
         <p className="text-gray-400 text-sm sm:text-base max-w-lg mx-auto">
-          매달 15곡까지 무료로 만들 수 있어요. 더 많이 만들고 싶을 때만 업그레이드하면 됩니다.
+          매달 30분의 작곡 시간이 무료. 짧은 곡 여러 개든, 긴 곡 한 개든 자유롭게 쓰세요.
         </p>
       </div>
 
@@ -58,12 +69,12 @@ export default function PricingPage() {
           <div className="flex-1 text-center sm:text-left">
             <h2 className="text-lg font-bold text-white mb-1">무료 플랜으로 할 수 있는 것들</h2>
             <div className="flex flex-wrap gap-x-6 gap-y-1 justify-center sm:justify-start text-sm text-gray-300">
-              <span>매달 15곡 작곡</span>
+              <span>매달 30분 작곡</span>
               <span>모든 장르 사용</span>
               <span>6트랙 레이어</span>
-              <span>60초 곡 길이</span>
+              <span>1분 곡 길이</span>
               <span>커뮤니티 공유</span>
-              <span>가입 시 보너스 10크레딧</span>
+              <span>가입 보너스 10분</span>
             </div>
           </div>
           {!isAuthenticated && (
@@ -74,6 +85,34 @@ export default function PricingPage() {
               무료로 시작하기
             </Link>
           )}
+        </div>
+      </div>
+
+      {/* How it works */}
+      <div className="glass-card p-5 mb-10">
+        <h3 className="text-sm font-bold text-white mb-3">시간 기반 요금제란?</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+          <div className="flex items-start gap-3">
+            <span className="text-lg">🕐</span>
+            <div>
+              <p className="text-gray-300 font-medium">곡 개수가 아닌 총 시간</p>
+              <p className="text-gray-500 text-xs">30초 곡 60개나 2분 곡 15개나 자유</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <span className="text-lg">🏆</span>
+            <div>
+              <p className="text-gray-300 font-medium">경쟁에서 시간 획득</p>
+              <p className="text-gray-500 text-xs">AI 심사에서 좋은 점수를 받으면 보너스</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <span className="text-lg">💎</span>
+            <div>
+              <p className="text-gray-300 font-medium">크레딧은 사라지지 않아요</p>
+              <p className="text-gray-500 text-xs">이번 달 안 쓴 크레딧은 계속 보관</p>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -158,12 +197,16 @@ export default function PricingPage() {
               <div className="flex-1 space-y-2 mb-4">
                 <Feature
                   text={
-                    plan.features.compositionsPerMonth === -1
-                      ? "무제한 작곡"
-                      : `월 ${plan.features.compositionsPerMonth}곡 작곡`
+                    plan.features.minutesPerMonth === -1
+                      ? "무제한 작곡 시간"
+                      : `월 ${formatMinutes(plan.features.minutesPerMonth)} 작곡`
                   }
                   included
                   highlight={plan.id === "free"}
+                />
+                <Feature
+                  text={`1곡 최대 ${formatDuration(plan.features.maxSongDuration)}`}
+                  included
                 />
                 <Feature
                   text={`최대 ${plan.features.maxTrackLayers}트랙 레이어`}
@@ -175,10 +218,6 @@ export default function PricingPage() {
                       ? "전체 장르"
                       : `${plan.features.genresAvailable}개 장르`
                   }
-                  included
-                />
-                <Feature
-                  text={`곡 길이 ${plan.features.maxSongDuration}초`}
                   included
                 />
                 <Feature
@@ -223,13 +262,36 @@ export default function PricingPage() {
         })}
       </div>
 
+      {/* Competition Rewards */}
+      <div className="mb-16">
+        <h2 className="text-xl font-bold text-white text-center mb-2">
+          경쟁 보상
+        </h2>
+        <p className="text-gray-500 text-sm text-center mb-6">
+          AI 심사에서 높은 점수를 받으면 보너스 작곡 시간을 획득할 수 있어요
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 max-w-3xl mx-auto">
+          {COMPETITION_REWARDS.map((reward) => (
+            <div
+              key={reward.label}
+              className="glass-card p-4 text-center"
+            >
+              <div className="text-2xl mb-1">{reward.badge}</div>
+              <div className="text-xs font-bold text-white">{reward.labelKo}</div>
+              <div className="text-[10px] text-gray-500 mb-2">{reward.minScore}점 이상</div>
+              <div className="text-sm font-bold text-green-400">+{reward.creditReward}분</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Credit Packs */}
       <div className="mb-16">
         <h2 className="text-xl font-bold text-white text-center mb-2">
-          크레딧 충전
+          시간 충전
         </h2>
         <p className="text-gray-500 text-sm text-center mb-6">
-          이번 달 곡을 다 만들었는데 더 하고 싶다면? 크레딧으로 추가 작곡하세요.
+          이번 달 시간을 다 쓰셨나요? 추가 작곡 시간을 충전하세요.
         </p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-2xl mx-auto">
           {CREDIT_PACKS.map((pack) => {
@@ -252,16 +314,19 @@ export default function PricingPage() {
                   </div>
                 )}
                 <div className="text-2xl font-bold text-white">
-                  {pack.credits}
+                  {pack.minutes}
                 </div>
-                <div className="text-xs text-gray-500">크레딧</div>
+                <div className="text-xs text-gray-500">분</div>
                 {pack.bonus > 0 && (
                   <div className="text-[10px] text-green-400 mt-1">
-                    +{pack.bonus} 보너스
+                    +{pack.bonus}분 보너스
                   </div>
                 )}
                 <div className="text-sm font-bold text-primary-300 mt-2">
                   {formatKRW(pack.price)}
+                </div>
+                <div className="text-[10px] text-gray-600">
+                  분당 {formatKRW(Math.round(pack.price / (pack.minutes + pack.bonus)))}
                 </div>
                 <button
                   onClick={() => handleBuyCredits(pack.id)}
@@ -280,20 +345,24 @@ export default function PricingPage() {
         <h2 className="text-xl font-bold text-white text-center mb-6">자주 묻는 질문</h2>
         <div className="space-y-3">
           <FaqItem
-            q="무료로 정말 충분히 쓸 수 있나요?"
-            a="네! 매달 15곡을 만들 수 있고 모든 장르를 사용할 수 있어요. 친구들이랑 즐기기에 충분합니다. 가입하면 보너스 10크레딧도 드려요."
+            q="시간 기반 요금제가 뭔가요?"
+            a="곡 개수 대신 총 작곡 시간으로 사용량을 측정합니다. 30초짜리 곡을 많이 만들거나, 1분짜리 곡을 적게 만들거나 자유롭게 쓸 수 있어요."
           />
           <FaqItem
-            q="크레딧은 뭔가요?"
-            a="이번 달 무료 작곡 횟수를 다 쓰면, 크레딧 1개로 곡 1개를 추가로 만들 수 있어요. 안 쓰면 계속 남아있습니다."
+            q="무료 30분이면 곡 몇 개 정도인가요?"
+            a="1분짜리 곡 30개, 30초짜리 곡 60개까지 가능해요. 친구들이랑 즐기기에 충분합니다."
           />
           <FaqItem
-            q="언제 업그레이드하면 좋나요?"
-            a="음악을 더 진지하게 만들고 싶을 때요. Pro 플랜부터 곡 길이 5분, 12트랙, 고음질 내보내기, 상업적 이용이 가능합니다."
+            q="경쟁에서 시간을 벌 수 있다고요?"
+            a="맞아요! AI 심사에서 50점 이상 받으면 보너스 시간을 받습니다. 90점 이상이면 30분이나 추가되니 실력을 키울수록 더 많이 만들 수 있어요."
+          />
+          <FaqItem
+            q="크레딧(보너스 시간)은 만료되나요?"
+            a="아니요. 가입 보너스나 경쟁 보상으로 받은 시간은 영구 보관됩니다. 매달 리셋되는 건 기본 할당량뿐이에요."
           />
           <FaqItem
             q="구독을 취소하면 어떻게 되나요?"
-            a="무료 플랜으로 돌아갑니다. 이미 만든 곡은 그대로 유지되고 남은 크레딧도 사라지지 않아요."
+            a="무료 플랜으로 돌아갑니다. 이미 만든 곡은 유지되고 남은 크레딧 시간도 사라지지 않아요."
           />
         </div>
       </div>

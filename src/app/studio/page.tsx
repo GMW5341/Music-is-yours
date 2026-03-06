@@ -26,7 +26,7 @@ import ReasoningTracePanel from "@/components/ReasoningTracePanel";
 import PersonalizationPanel from "@/components/PersonalizationPanel";
 import AuthGuard from "@/components/AuthGuard";
 import { useAuth } from "@/components/AuthProvider";
-import { canCompose, useComposition, getRemainingCompositions, getCurrentPlan } from "@/lib/subscription";
+import { canCompose, useMinutes, getRemainingMinutes, getCurrentPlan, formatMinutes } from "@/lib/subscription";
 
 const ALL_GENRES = Object.entries(GENRE_INFO) as [Genre, typeof GENRE_INFO[Genre]][];
 
@@ -67,11 +67,12 @@ function StudioContent() {
     if (!prompt.trim()) return;
     setComposeError(null);
 
-    // 크레딧/작곡 횟수 확인
-    if (!canCompose()) {
-      const plan = getCurrentPlan();
+    // 작곡 시간 확인
+    const plan = getCurrentPlan();
+    const songDuration = plan.features.maxSongDuration;
+    if (!canCompose(songDuration)) {
       setComposeError(
-        `이번 달 작곡 횟수(${plan.features.compositionsPerMonth}회)를 모두 사용했습니다. 크레딧을 충전하거나 요금제를 업그레이드해주세요.`
+        `이번 달 작곡 시간을 모두 사용했습니다. 크레딧을 충전하거나 요금제를 업그레이드해주세요.`
       );
       return;
     }
@@ -79,11 +80,11 @@ function StudioContent() {
     setIsComposing(true);
     await new Promise((r) => setTimeout(r, 1500));
 
-    // 작곡 횟수 차감
-    const used = useComposition();
+    // 작곡 시간 차감
+    const used = useMinutes(songDuration);
     if (!used) {
       setIsComposing(false);
-      setComposeError("크레딧이 부족합니다.");
+      setComposeError("작곡 시간이 부족합니다.");
       return;
     }
 
@@ -97,12 +98,12 @@ function StudioContent() {
     setComposeContext(context);
     setIsComposing(false);
 
-    const remaining = getRemainingCompositions();
+    const remaining = getRemainingMinutes();
     const logs = [
       `"${prompt}" - 곡이 생성되었습니다.`,
       `지식 그래프: ${context.knowledgeResult.totalMatches}건 참조`,
       `개인화 수준: ${(context.personalizedParams.personalizationLevel * 100).toFixed(0)}%`,
-      `남은 작곡: ${remaining.monthly === Infinity ? "무제한" : remaining.monthly + "회"} / 크레딧: ${remaining.credits}`,
+      `남은 시간: ${formatMinutes(remaining.monthly)} / 크레딧: ${formatMinutes(remaining.credits)}`,
     ];
     if (context.relatedReferences.length > 0) {
       logs.push(`참조 레퍼런스: ${context.relatedReferences.map((r) => r.title).join(", ")}`);
@@ -163,7 +164,7 @@ function StudioContent() {
     setReferenceSummary(getReferenceAnalysisSummary(userId));
   }, []);
 
-  const remaining = getRemainingCompositions();
+  const remaining = getRemainingMinutes();
   const plan = getCurrentPlan();
 
   return (
@@ -176,17 +177,17 @@ function StudioContent() {
           </span>
           <span className="text-gray-500">|</span>
           <span className="text-gray-300">
-            남은 작곡: <span className="text-purple-400 font-medium">
-              {remaining.monthly === Infinity ? "무제한" : `${remaining.monthly}회`}
+            남은 시간: <span className="text-purple-400 font-medium">
+              {formatMinutes(remaining.monthly)}
             </span>
           </span>
           <span className="text-gray-300">
-            크레딧: <span className="text-pink-400 font-medium">{remaining.credits}</span>
+            크레딧: <span className="text-pink-400 font-medium">{formatMinutes(remaining.credits)}</span>
           </span>
         </div>
-        {remaining.monthly <= 2 && remaining.monthly !== Infinity && (
+        {remaining.monthly <= 5 && remaining.monthly !== Infinity && (
           <a href="/pricing" className="text-xs text-purple-400 hover:text-purple-300 transition-colors">
-            업그레이드 &rarr;
+            시간 충전 &rarr;
           </a>
         )}
       </div>

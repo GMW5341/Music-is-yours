@@ -5,6 +5,7 @@ import { Song, GENRE_INFO, JudgeResult, Genre } from "@/types/music";
 import { getAIJudges, judgeSubmission, calculateFinalScore } from "@/lib/ai-judge";
 import { composeFromRequest, parseNaturalLanguagePrompt } from "@/lib/ai-composer";
 import AuthGuard from "@/components/AuthGuard";
+import { getRewardForScore, claimCompetitionReward, CompetitionReward, formatMinutes } from "@/lib/subscription";
 
 type CompetitionTab = "submit" | "results" | "leaderboard";
 
@@ -40,6 +41,8 @@ function CompetitionContent() {
   const [isComposing, setIsComposing] = useState(false);
   const [isJudging, setIsJudging] = useState(false);
   const [finalScore, setFinalScore] = useState<number | null>(null);
+  const [reward, setReward] = useState<CompetitionReward | null>(null);
+  const [rewardClaimed, setRewardClaimed] = useState(false);
 
   const judges = getAIJudges();
 
@@ -62,6 +65,8 @@ function CompetitionContent() {
     setIsComposing(false);
     setJudgeResults([]);
     setFinalScore(null);
+    setReward(null);
+    setRewardClaimed(false);
   }, [prompt]);
 
   const handleSubmitForJudging = useCallback(async () => {
@@ -79,9 +84,19 @@ function CompetitionContent() {
 
     const score = calculateFinalScore(results);
     setFinalScore(score);
+    setReward(getRewardForScore(score));
+    setRewardClaimed(false);
     setIsJudging(false);
     setTab("results");
   }, [song, judges]);
+
+  const handleClaimReward = () => {
+    if (!finalScore) return;
+    const claimed = claimCompetitionReward(finalScore);
+    if (claimed) {
+      setRewardClaimed(true);
+    }
+  };
 
   return (
     <div className="min-h-screen px-4 py-6 max-w-5xl mx-auto">
@@ -231,6 +246,36 @@ function CompetitionContent() {
                  finalScore >= 50 ? "👍 좋은 시작이에요!" :
                  "💪 계속 도전하세요!"}
               </div>
+
+              {/* Competition Reward */}
+              {reward && (
+                <div className="mt-6 p-4 rounded-xl bg-dark-100/50 border border-green-500/20 inline-block">
+                  <div className="text-2xl mb-1">{reward.badge}</div>
+                  <div className="text-sm font-bold text-white mb-1">
+                    {reward.labelKo} 등급 달성!
+                  </div>
+                  <div className="text-xs text-green-400 mb-3">
+                    보상: +{formatMinutes(reward.creditReward)} 작곡 시간
+                  </div>
+                  {rewardClaimed ? (
+                    <div className="text-xs text-green-400 font-medium">
+                      ✓ 보상 수령 완료
+                    </div>
+                  ) : (
+                    <button
+                      onClick={handleClaimReward}
+                      className="px-4 py-2 rounded-lg bg-gradient-to-r from-green-600 to-emerald-600 text-white text-xs font-bold hover:from-green-500 hover:to-emerald-500 transition-all"
+                    >
+                      보상 받기
+                    </button>
+                  )}
+                </div>
+              )}
+              {!reward && finalScore < 50 && (
+                <div className="mt-4 text-xs text-gray-500">
+                  50점 이상 받으면 보너스 작곡 시간을 획득할 수 있어요!
+                </div>
+              )}
             </div>
           )}
 

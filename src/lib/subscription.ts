@@ -2,31 +2,28 @@
 // Subscription & Business Model Engine
 // 프리미엄(Freemium) + 구독(Subscription) + 크레딧(Credit) 하이브리드 모델
 //
-// 수익 구조:
-// 1. Freemium → Pro 구독 전환 (월/연)
-// 2. 크레딧 팩 인앱결제 (작곡 횟수 충전)
-// 3. AI 심사 프리미엄 (상세 피드백)
-// 4. 프로듀서 도구 프리미엄 (고급 이펙트/마스터링)
-// 5. 커뮤니티 부스트 (곡 노출 증가)
-// 6. B2B API 라이선싱 (기업용)
+// 핵심 제한: 작곡 시간(분) 기반
+// - 곡 개수가 아닌 총 작곡 시간으로 사용량 측정
+// - 크레딧 = 추가 작곡 시간 (1크레딧 = 1분)
+// - 경쟁 보상으로 크레딧/시간 획득 가능
 // ============================================================================
 
 export type SubscriptionTier = "free" | "starter" | "pro" | "studio";
 export type BillingCycle = "monthly" | "yearly";
 
 export interface PlanFeatures {
-  compositionsPerMonth: number;   // -1 = 무제한
+  minutesPerMonth: number;        // -1 = 무제한, 월 작곡 시간(분)
   maxTrackLayers: number;
-  maxSongDuration: number;        // 초
+  maxSongDuration: number;        // 초 (1곡 최대 길이)
   genresAvailable: number;        // -1 = 전체
   producerFeatures: string[];
-  referenceTracks: number;        // 개인화용 레퍼런스 등록 수
+  referenceTracks: number;
   aiJudgeDetailed: boolean;
   communitySharing: boolean;
   exportFormats: string[];
   storageGB: number;
   priorityGeneration: boolean;
-  customAITraining: boolean;      // 개인화 파인튜닝
+  customAITraining: boolean;
   apiAccess: boolean;
   commercialLicense: boolean;
   collaborationSlots: number;
@@ -38,14 +35,13 @@ export interface SubscriptionPlan {
   name: string;
   nameKo: string;
   tagline: string;
-  monthlyPrice: number;           // KRW
-  yearlyPrice: number;            // KRW (연간 총액)
-  yearlyMonthly: number;          // KRW (연간 결제 시 월 환산)
+  monthlyPrice: number;
+  yearlyPrice: number;
+  yearlyMonthly: number;
   features: PlanFeatures;
   popular: boolean;
   color: string;
   icon: string;
-  // 앱 스토어 Product ID
   iapIdMonthly?: string;
   iapIdYearly?: string;
 }
@@ -54,9 +50,9 @@ export interface CreditPack {
   id: string;
   name: string;
   nameKo: string;
-  credits: number;
+  minutes: number;                // 구매 시간(분)
+  bonus: number;                  // 보너스 시간(분)
   price: number;                  // KRW
-  bonus: number;                  // 보너스 크레딧
   popular: boolean;
   iapId?: string;
 }
@@ -64,10 +60,40 @@ export interface CreditPack {
 export interface UserSubscription {
   tier: SubscriptionTier;
   billingCycle?: BillingCycle;
-  credits: number;
+  credits: number;                // 크레딧 = 보너스 분 (1크레딧 = 1분)
   expiresAt?: string;
-  compositionsThisMonth: number;
+  minutesUsedThisMonth: number;   // 이번 달 사용한 시간(분)
   referenceTracksUsed: number;
+}
+
+// --- 경쟁 보상 ---
+
+export interface CompetitionReward {
+  minScore: number;
+  label: string;
+  labelKo: string;
+  creditReward: number;           // 보너스 크레딧(분)
+  badge: string;
+}
+
+export const COMPETITION_REWARDS: CompetitionReward[] = [
+  { minScore: 90, label: "Legendary", labelKo: "전설", creditReward: 30, badge: "👑" },
+  { minScore: 80, label: "Master", labelKo: "마스터", creditReward: 15, badge: "🌟" },
+  { minScore: 70, label: "Expert", labelKo: "전문가", creditReward: 8, badge: "🔥" },
+  { minScore: 60, label: "Skilled", labelKo: "숙련", creditReward: 4, badge: "✨" },
+  { minScore: 50, label: "Rising", labelKo: "신예", creditReward: 2, badge: "🎵" },
+];
+
+export function getRewardForScore(score: number): CompetitionReward | null {
+  return COMPETITION_REWARDS.find((r) => score >= r.minScore) || null;
+}
+
+export function claimCompetitionReward(score: number): CompetitionReward | null {
+  const reward = getRewardForScore(score);
+  if (!reward) return null;
+  currentSubscription.credits += reward.creditReward;
+  persistSubscription();
+  return reward;
 }
 
 // --- 구독 플랜 정의 ---
@@ -85,9 +111,9 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
     color: "#6B7280",
     icon: "🎵",
     features: {
-      compositionsPerMonth: 15,
+      minutesPerMonth: 30,          // 30분 = 60초짜리 30곡 또는 2분짜리 15곡
       maxTrackLayers: 6,
-      maxSongDuration: 60,
+      maxSongDuration: 60,           // 1분
       genresAvailable: -1,
       producerFeatures: ["reverb_send", "eq_sculpt", "chord_progression"],
       referenceTracks: 3,
@@ -117,9 +143,9 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
     iapIdMonthly: "com.musicisyours.starter.monthly",
     iapIdYearly: "com.musicisyours.starter.yearly",
     features: {
-      compositionsPerMonth: 30,
-      maxTrackLayers: 6,
-      maxSongDuration: 120,
+      minutesPerMonth: 120,          // 2시간
+      maxTrackLayers: 8,
+      maxSongDuration: 180,          // 3분
       genresAvailable: -1,
       producerFeatures: ["reverb_send", "eq_sculpt", "sidechain", "chord_progression", "auto_arrangement", "layering"],
       referenceTracks: 10,
@@ -149,9 +175,9 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
     iapIdMonthly: "com.musicisyours.pro.monthly",
     iapIdYearly: "com.musicisyours.pro.yearly",
     features: {
-      compositionsPerMonth: 100,
+      minutesPerMonth: 600,          // 10시간
       maxTrackLayers: 12,
-      maxSongDuration: 300,
+      maxSongDuration: 300,          // 5분
       genresAvailable: -1,
       producerFeatures: ["all"],
       referenceTracks: 50,
@@ -181,9 +207,9 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
     iapIdMonthly: "com.musicisyours.studio.monthly",
     iapIdYearly: "com.musicisyours.studio.yearly",
     features: {
-      compositionsPerMonth: -1,
+      minutesPerMonth: -1,            // 무제한
       maxTrackLayers: 24,
-      maxSongDuration: 600,
+      maxSongDuration: 600,           // 10분
       genresAvailable: -1,
       producerFeatures: ["all"],
       referenceTracks: -1,
@@ -201,16 +227,16 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
   },
 ];
 
-// --- 크레딧 팩 ---
+// --- 크레딧 팩 (시간 기반) ---
 
 export const CREDIT_PACKS: CreditPack[] = [
-  { id: "credits-10", name: "10 Credits", nameKo: "10 크레딧", credits: 10, price: 3900, bonus: 0, popular: false, iapId: "com.musicisyours.credits.10" },
-  { id: "credits-30", name: "30 Credits", nameKo: "30 크레딧", credits: 30, price: 9900, bonus: 3, popular: true, iapId: "com.musicisyours.credits.30" },
-  { id: "credits-100", name: "100 Credits", nameKo: "100 크레딧", credits: 100, price: 29900, bonus: 15, popular: false, iapId: "com.musicisyours.credits.100" },
-  { id: "credits-300", name: "300 Credits", nameKo: "300 크레딧", credits: 300, price: 79900, bonus: 60, popular: false, iapId: "com.musicisyours.credits.300" },
+  { id: "min-10", name: "10 Minutes", nameKo: "10분", minutes: 10, price: 2900, bonus: 0, popular: false, iapId: "com.musicisyours.min.10" },
+  { id: "min-30", name: "30 Minutes", nameKo: "30분", minutes: 30, price: 7900, bonus: 3, popular: true, iapId: "com.musicisyours.min.30" },
+  { id: "min-60", name: "1 Hour", nameKo: "1시간", minutes: 60, price: 13900, bonus: 10, popular: false, iapId: "com.musicisyours.min.60" },
+  { id: "min-180", name: "3 Hours", nameKo: "3시간", minutes: 180, price: 35900, bonus: 30, popular: false, iapId: "com.musicisyours.min.180" },
 ];
 
-// --- 구독 상태 관리 (localStorage 기반 유저별 저장) ---
+// --- 구독 상태 관리 (localStorage 기반) ---
 
 const SUB_STORAGE_PREFIX = "miy_sub_";
 
@@ -221,8 +247,8 @@ function getSubKey(userId: string): string {
 function defaultSubscription(): UserSubscription {
   return {
     tier: "free",
-    credits: 10,
-    compositionsThisMonth: 0,
+    credits: 10,                     // 가입 보너스 10분
+    minutesUsedThisMonth: 0,
     referenceTracksUsed: 0,
   };
 }
@@ -239,7 +265,13 @@ export function initSubscription(userId: string): void {
   const raw = localStorage.getItem(getSubKey(userId));
   if (raw) {
     try {
-      currentSubscription = JSON.parse(raw) as UserSubscription;
+      const parsed = JSON.parse(raw) as UserSubscription;
+      // Migration: old format had compositionsThisMonth instead of minutesUsedThisMonth
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if (typeof (parsed as any).compositionsThisMonth === "number" && parsed.minutesUsedThisMonth === undefined) {
+        parsed.minutesUsedThisMonth = 0;
+      }
+      currentSubscription = parsed;
     } catch {
       currentSubscription = defaultSubscription();
     }
@@ -263,39 +295,55 @@ export function getCurrentPlan(): SubscriptionPlan {
   return SUBSCRIPTION_PLANS.find((p) => p.id === currentSubscription.tier) || SUBSCRIPTION_PLANS[0];
 }
 
-export function canCompose(): boolean {
+// --- 작곡 시간 기반 사용량 체크 ---
+
+export function canCompose(durationSeconds: number): boolean {
+  const durationMinutes = durationSeconds / 60;
   const plan = getCurrentPlan();
-  if (plan.features.compositionsPerMonth === -1) return true;
-  if (currentSubscription.compositionsThisMonth < plan.features.compositionsPerMonth) return true;
-  return currentSubscription.credits > 0;
+  if (plan.features.minutesPerMonth === -1) return true;
+
+  const monthlyLeft = plan.features.minutesPerMonth - currentSubscription.minutesUsedThisMonth;
+  if (monthlyLeft >= durationMinutes) return true;
+
+  // 크레딧으로 초과분 커버 가능?
+  const deficit = durationMinutes - Math.max(0, monthlyLeft);
+  return currentSubscription.credits >= deficit;
 }
 
-export function getRemainingCompositions(): { monthly: number; credits: number } {
+export function getRemainingMinutes(): { monthly: number; credits: number } {
   const plan = getCurrentPlan();
-  const monthlyLeft = plan.features.compositionsPerMonth === -1
+  const monthlyLeft = plan.features.minutesPerMonth === -1
     ? Infinity
-    : Math.max(0, plan.features.compositionsPerMonth - currentSubscription.compositionsThisMonth);
+    : Math.max(0, plan.features.minutesPerMonth - currentSubscription.minutesUsedThisMonth);
   return { monthly: monthlyLeft, credits: currentSubscription.credits };
 }
 
-export function useComposition(): boolean {
-  if (!canCompose()) return false;
+export function useMinutes(durationSeconds: number): boolean {
+  const durationMinutes = durationSeconds / 60;
+  if (!canCompose(durationSeconds)) return false;
 
   const plan = getCurrentPlan();
-  if (plan.features.compositionsPerMonth === -1 ||
-      currentSubscription.compositionsThisMonth < plan.features.compositionsPerMonth) {
-    currentSubscription.compositionsThisMonth++;
+  if (plan.features.minutesPerMonth === -1) {
+    // 무제한이라도 기록은 남김
+    currentSubscription.minutesUsedThisMonth += durationMinutes;
     persistSubscription();
     return true;
   }
 
-  if (currentSubscription.credits > 0) {
-    currentSubscription.credits--;
-    persistSubscription();
-    return true;
+  const monthlyLeft = plan.features.minutesPerMonth - currentSubscription.minutesUsedThisMonth;
+
+  if (monthlyLeft >= durationMinutes) {
+    // 월 할당량으로 충분
+    currentSubscription.minutesUsedThisMonth += durationMinutes;
+  } else {
+    // 월 할당량 초과분은 크레딧에서 차감
+    const deficit = durationMinutes - Math.max(0, monthlyLeft);
+    currentSubscription.minutesUsedThisMonth = plan.features.minutesPerMonth;
+    currentSubscription.credits = Math.max(0, currentSubscription.credits - Math.ceil(deficit));
   }
 
-  return false;
+  persistSubscription();
+  return true;
 }
 
 export function canAddReference(): boolean {
@@ -317,7 +365,7 @@ export function simulateUpgrade(tier: SubscriptionTier, cycle: BillingCycle): vo
 export function simulateCreditPurchase(packId: string): void {
   const pack = CREDIT_PACKS.find((p) => p.id === packId);
   if (pack) {
-    currentSubscription.credits += pack.credits + pack.bonus;
+    currentSubscription.credits += pack.minutes + pack.bonus;
     persistSubscription();
   }
 }
@@ -325,4 +373,14 @@ export function simulateCreditPurchase(packId: string): void {
 export function formatKRW(amount: number): string {
   if (amount === 0) return "무료";
   return new Intl.NumberFormat("ko-KR").format(amount) + "원";
+}
+
+export function formatMinutes(mins: number): string {
+  if (mins === Infinity) return "무제한";
+  if (mins >= 60) {
+    const hours = Math.floor(mins / 60);
+    const remainder = Math.round(mins % 60);
+    return remainder > 0 ? `${hours}시간 ${remainder}분` : `${hours}시간`;
+  }
+  return `${Math.round(mins)}분`;
 }
