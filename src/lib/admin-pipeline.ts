@@ -88,13 +88,13 @@ export const COMMERCIAL_SONG_CATALOG: ReferenceTrackInput[] = [
   { title: "Lean On", artist: "Major Lazer", genre: "edm", bpm: 98, key: "G#", scale: "minor", duration: 176, tags: ["moombahton", "tropical"] },
 
   // Rock
-  { title: "Bohemian Rhapsody", artist: "Queen", genre: "rock", bpm: 72, key: "Bb", scale: "major", duration: 354, tags: ["progressive", "operatic", "classic"] },
+  { title: "Bohemian Rhapsody", artist: "Queen", genre: "rock", bpm: 72, key: "A#", scale: "major", duration: 354, tags: ["progressive", "operatic", "classic"] },
   { title: "Smells Like Teen Spirit", artist: "Nirvana", genre: "rock", bpm: 117, key: "F", scale: "minor", duration: 301, tags: ["grunge", "raw", "iconic"] },
   { title: "Welcome to the Black Parade", artist: "MCR", genre: "rock", bpm: 97, key: "G", scale: "major", duration: 311, tags: ["emo", "theatrical", "epic"] },
 
   // Jazz
   { title: "So What", artist: "Miles Davis", genre: "jazz", bpm: 136, key: "D", scale: "dorian", duration: 562, tags: ["modal", "cool", "classic"] },
-  { title: "Take Five", artist: "Dave Brubeck", genre: "jazz", bpm: 172, key: "Eb", scale: "minor", duration: 324, tags: ["cool", "5/4_time", "classic"] },
+  { title: "Take Five", artist: "Dave Brubeck", genre: "jazz", bpm: 172, key: "D#", scale: "minor", duration: 324, tags: ["cool", "5/4_time", "classic"] },
   { title: "Fly Me to the Moon", artist: "Frank Sinatra", genre: "jazz", bpm: 120, key: "C", scale: "major", duration: 148, tags: ["swing", "vocal", "standard"] },
 
   // Lo-Fi
@@ -102,7 +102,7 @@ export const COMMERCIAL_SONG_CATALOG: ReferenceTrackInput[] = [
   { title: "Coffee", artist: "beabadoobee", genre: "lofi", bpm: 88, key: "C", scale: "major", duration: 180, tags: ["bedroom_pop", "acoustic"] },
 
   // Classical
-  { title: "Clair de Lune", artist: "Debussy", genre: "classical", bpm: 66, key: "Db", scale: "major", duration: 300, tags: ["impressionist", "piano", "dreamy"] },
+  { title: "Clair de Lune", artist: "Debussy", genre: "classical", bpm: 66, key: "C#", scale: "major", duration: 300, tags: ["impressionist", "piano", "dreamy"] },
   { title: "Moonlight Sonata", artist: "Beethoven", genre: "classical", bpm: 60, key: "C#", scale: "minor", duration: 360, tags: ["romantic", "piano", "melancholic"] },
 
   // Electronic
@@ -120,7 +120,7 @@ export const COMMERCIAL_SONG_CATALOG: ReferenceTrackInput[] = [
   { title: "Do I Wanna Know?", artist: "Arctic Monkeys", genre: "indie", bpm: 85, key: "G", scale: "minor", duration: 272, tags: ["dark", "groovy", "brooding"] },
 
   // Funk
-  { title: "Superstition", artist: "Stevie Wonder", genre: "funk", bpm: 100, key: "Eb", scale: "minor", duration: 244, tags: ["clavinet", "groovy", "classic"] },
+  { title: "Superstition", artist: "Stevie Wonder", genre: "funk", bpm: 100, key: "D#", scale: "minor", duration: 244, tags: ["clavinet", "groovy", "classic"] },
 
   // Soul
   { title: "Ain't No Sunshine", artist: "Bill Withers", genre: "soul", bpm: 78, key: "A", scale: "minor", duration: 125, tags: ["classic", "melancholic", "minimal"] },
