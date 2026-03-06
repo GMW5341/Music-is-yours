@@ -183,7 +183,7 @@ class MusicKnowledgeGraph {
     const emotionKeys = Object.keys(dnas[0].emotionVector) as (keyof EmotionVector)[];
     const avgEmotion: EmotionVector = {} as EmotionVector;
     emotionKeys.forEach((key) => {
-      (avgEmotion as Record<string, number>)[key] =
+      (avgEmotion as unknown as Record<string, number>)[key] =
         dnas.reduce((s, d) => s + d.emotionVector[key], 0) / dnas.length;
     });
 
@@ -480,7 +480,7 @@ class MusicKnowledgeGraph {
     const emotionKeys = Object.keys(dnas[0].emotionVector) as (keyof EmotionVector)[];
     const emotionTarget: EmotionVector = {} as EmotionVector;
     emotionKeys.forEach((key) => {
-      (emotionTarget as Record<string, number>)[key] = weightedAvg((d) => d.emotionVector[key]);
+      (emotionTarget as unknown as Record<string, number>)[key] = weightedAvg((d) => d.emotionVector[key]);
     });
 
     // 편곡 힌트
