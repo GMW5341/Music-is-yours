@@ -13,10 +13,19 @@ import {
   IngestResult,
 } from "@/lib/admin-pipeline";
 import { getKnowledgeGraph } from "@/lib/knowledge-plane";
+import AuthGuard from "@/components/AuthGuard";
 
 const ALL_GENRES = Object.entries(GENRE_INFO) as [Genre, typeof GENRE_INFO[Genre]][];
 
 export default function AdminPage() {
+  return (
+    <AuthGuard>
+      <AdminContent />
+    </AuthGuard>
+  );
+}
+
+function AdminContent() {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [lastJob, setLastJob] = useState<AdminIngestJob | null>(null);
   const [isIngesting, setIsIngesting] = useState(false);

@@ -24,15 +24,28 @@ import ShareModal from "@/components/ShareModal";
 import ReferencePanel from "@/components/ReferencePanel";
 import ReasoningTracePanel from "@/components/ReasoningTracePanel";
 import PersonalizationPanel from "@/components/PersonalizationPanel";
+import AuthGuard from "@/components/AuthGuard";
+import { useAuth } from "@/components/AuthProvider";
+import { canCompose, useComposition, getRemainingCompositions, getCurrentPlan } from "@/lib/subscription";
 
 const ALL_GENRES = Object.entries(GENRE_INFO) as [Genre, typeof GENRE_INFO[Genre]][];
-const USER_ID = "user-1";
 
 export default function StudioPage() {
+  return (
+    <AuthGuard>
+      <StudioContent />
+    </AuthGuard>
+  );
+}
+
+function StudioContent() {
+  const { user } = useAuth();
+  const userId = user?.id || "anonymous";
   const [prompt, setPrompt] = useState("");
   const [selectedGenre, setSelectedGenre] = useState<Genre | null>(null);
   const [song, setSong] = useState<Song | null>(null);
   const [isComposing, setIsComposing] = useState(false);
+  const [composeError, setComposeError] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<string[]>(getTextSuggestions(""));
   const [showGenres, setShowGenres] = useState(false);
   const [showProducerPanel, setShowProducerPanel] = useState(false);
@@ -52,13 +65,31 @@ export default function StudioPage() {
   // 지식 기반 + 개인화된 작곡
   const handleCompose = useCallback(async () => {
     if (!prompt.trim()) return;
+    setComposeError(null);
+
+    // 크레딧/작곡 횟수 확인
+    if (!canCompose()) {
+      const plan = getCurrentPlan();
+      setComposeError(
+        `이번 달 작곡 횟수(${plan.features.compositionsPerMonth}회)를 모두 사용했습니다. 크레딧을 충전하거나 요금제를 업그레이드해주세요.`
+      );
+      return;
+    }
 
     setIsComposing(true);
     await new Promise((r) => setTimeout(r, 1500));
 
+    // 작곡 횟수 차감
+    const used = useComposition();
+    if (!used) {
+      setIsComposing(false);
+      setComposeError("크레딧이 부족합니다.");
+      return;
+    }
+
     const { song: newSong, context } = composeWithKnowledge(
       prompt,
-      USER_ID,
+      userId,
       selectedGenre || undefined
     );
 
@@ -66,10 +97,12 @@ export default function StudioPage() {
     setComposeContext(context);
     setIsComposing(false);
 
+    const remaining = getRemainingCompositions();
     const logs = [
       `"${prompt}" - 곡이 생성되었습니다.`,
       `지식 그래프: ${context.knowledgeResult.totalMatches}건 참조`,
       `개인화 수준: ${(context.personalizedParams.personalizationLevel * 100).toFixed(0)}%`,
+      `남은 작곡: ${remaining.monthly === Infinity ? "무제한" : remaining.monthly + "회"} / 크레딧: ${remaining.credits}`,
     ];
     if (context.relatedReferences.length > 0) {
       logs.push(`참조 레퍼런스: ${context.relatedReferences.map((r) => r.title).join(", ")}`);
@@ -78,7 +111,7 @@ export default function StudioPage() {
 
     // 작곡 이력 기록
     recordComposition(
-      USER_ID,
+      userId,
       prompt,
       newSong.genre,
       newSong.bpm,
@@ -86,7 +119,7 @@ export default function StudioPage() {
       newSong.scale,
       []
     );
-  }, [prompt, selectedGenre]);
+  }, [prompt, selectedGenre, userId]);
 
   const handleApplyFeature = useCallback(
     (featureId: string) => {
@@ -99,7 +132,7 @@ export default function StudioPage() {
       setFeatureLog((prev) => [...prev, `${feature.nameKo} 적용 완료`]);
 
       // 사용한 기능 기록
-      recordComposition(USER_ID, prompt, song.genre, song.bpm, song.key, song.scale, [featureId]);
+      recordComposition(userId, prompt, song.genre, song.bpm, song.key, song.scale, [featureId]);
     },
     [song, prompt]
   );
@@ -115,8 +148,8 @@ export default function StudioPage() {
 
   // 레퍼런스 곡 추가 콜백
   const handleAddReference = useCallback((input: ReferenceTrackInput) => {
-    const dna = addReferenceTrack(USER_ID, input);
-    setReferenceSummary(getReferenceAnalysisSummary(USER_ID));
+    const dna = addReferenceTrack(userId, input);
+    setReferenceSummary(getReferenceAnalysisSummary(userId));
     setFeatureLog((prev) => [
       ...prev,
       `레퍼런스 추가: "${input.title}" (${input.artist}) - DNA 분석 완료 (신뢰도: ${(dna.confidence * 100).toFixed(0)}%)`,
@@ -125,13 +158,39 @@ export default function StudioPage() {
 
   // 피드백 콜백
   const handleFeedback = useCallback((rating: number, liked: string[], disliked: string[]) => {
-    submitFeedback(USER_ID, { rating, liked, disliked });
+    submitFeedback(userId, { rating, liked, disliked });
     setFeatureLog((prev) => [...prev, `피드백 반영 완료 (${rating}/5)`]);
-    setReferenceSummary(getReferenceAnalysisSummary(USER_ID));
+    setReferenceSummary(getReferenceAnalysisSummary(userId));
   }, []);
+
+  const remaining = getRemainingCompositions();
+  const plan = getCurrentPlan();
 
   return (
     <div className="min-h-screen px-4 py-6 max-w-7xl mx-auto">
+      {/* Credit Status Bar */}
+      <div className="glass-card p-3 mb-4 flex items-center justify-between text-sm">
+        <div className="flex items-center gap-4">
+          <span className="text-gray-400">
+            {plan.nameKo} 플랜
+          </span>
+          <span className="text-gray-500">|</span>
+          <span className="text-gray-300">
+            남은 작곡: <span className="text-purple-400 font-medium">
+              {remaining.monthly === Infinity ? "무제한" : `${remaining.monthly}회`}
+            </span>
+          </span>
+          <span className="text-gray-300">
+            크레딧: <span className="text-pink-400 font-medium">{remaining.credits}</span>
+          </span>
+        </div>
+        {remaining.monthly <= 2 && remaining.monthly !== Infinity && (
+          <a href="/pricing" className="text-xs text-purple-400 hover:text-purple-300 transition-colors">
+            업그레이드 &rarr;
+          </a>
+        )}
+      </div>
+
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl sm:text-3xl font-bold gradient-text">AI 작곡 스튜디오</h1>
         <div className="flex gap-2">
@@ -162,7 +221,7 @@ export default function StudioPage() {
       {/* Personalization Panel */}
       {showPersonalization && (
         <PersonalizationPanel
-          userId={USER_ID}
+          userId={userId}
           summary={referenceSummary}
           onFeedback={handleFeedback}
           onClose={() => setShowPersonalization(false)}
@@ -209,6 +268,18 @@ export default function StudioPage() {
             )}
           </button>
         </div>
+
+        {composeError && (
+          <div className="mt-3 flex items-center justify-between bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
+            <p className="text-sm text-red-400">{composeError}</p>
+            <a
+              href="/pricing"
+              className="text-xs px-3 py-1.5 rounded-lg bg-purple-600 text-white hover:bg-purple-500 transition-colors whitespace-nowrap ml-4"
+            >
+              요금제 보기
+            </a>
+          </div>
+        )}
 
         <div className="flex flex-wrap gap-2 mt-3">
           {suggestions.map((s, i) => (

@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import { Song, GENRE_INFO, JudgeResult, Genre } from "@/types/music";
 import { getAIJudges, judgeSubmission, calculateFinalScore } from "@/lib/ai-judge";
 import { composeFromRequest, parseNaturalLanguagePrompt } from "@/lib/ai-composer";
+import AuthGuard from "@/components/AuthGuard";
 
 type CompetitionTab = "submit" | "results" | "leaderboard";
 
@@ -24,6 +25,14 @@ const SAMPLE_LEADERBOARD: LeaderboardEntry[] = [
 ];
 
 export default function CompetitionPage() {
+  return (
+    <AuthGuard>
+      <CompetitionContent />
+    </AuthGuard>
+  );
+}
+
+function CompetitionContent() {
   const [tab, setTab] = useState<CompetitionTab>("submit");
   const [prompt, setPrompt] = useState("");
   const [song, setSong] = useState<Song | null>(null);

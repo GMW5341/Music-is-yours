@@ -12,6 +12,7 @@ import {
   logout as authLogout,
   getCurrentUser,
 } from "@/lib/auth";
+import { initSubscription } from "@/lib/subscription";
 
 interface AuthContextType extends AuthState {
   login: (req: LoginRequest) => Promise<AuthResponse>;
@@ -38,6 +39,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const stored = getCurrentUser();
+    if (stored) {
+      initSubscription(stored.id);
+    }
     setUser(stored);
     setIsLoading(false);
   }, []);
@@ -45,6 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async (req: LoginRequest): Promise<AuthResponse> => {
     const res = await authLogin(req);
     if (res.success && res.user) {
+      initSubscription(res.user.id);
       setUser(res.user);
     }
     return res;
@@ -53,6 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const register = useCallback(async (req: RegisterRequest): Promise<AuthResponse> => {
     const res = await authRegister(req);
     if (res.success && res.user) {
+      initSubscription(res.user.id);
       setUser(res.user);
     }
     return res;

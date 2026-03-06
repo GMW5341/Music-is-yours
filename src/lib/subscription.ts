@@ -210,14 +210,50 @@ export const CREDIT_PACKS: CreditPack[] = [
   { id: "credits-300", name: "300 Credits", nameKo: "300 크레딧", credits: 300, price: 79900, bonus: 60, popular: false, iapId: "com.musicisyours.credits.300" },
 ];
 
-// --- 구독 상태 관리 ---
+// --- 구독 상태 관리 (localStorage 기반 유저별 저장) ---
 
-let currentSubscription: UserSubscription = {
-  tier: "free",
-  credits: 5,
-  compositionsThisMonth: 0,
-  referenceTracksUsed: 0,
-};
+const SUB_STORAGE_PREFIX = "miy_sub_";
+
+function getSubKey(userId: string): string {
+  return SUB_STORAGE_PREFIX + userId;
+}
+
+function defaultSubscription(): UserSubscription {
+  return {
+    tier: "free",
+    credits: 5,
+    compositionsThisMonth: 0,
+    referenceTracksUsed: 0,
+  };
+}
+
+let currentUserId: string | null = null;
+let currentSubscription: UserSubscription = defaultSubscription();
+
+export function initSubscription(userId: string): void {
+  currentUserId = userId;
+  if (typeof window === "undefined") {
+    currentSubscription = defaultSubscription();
+    return;
+  }
+  const raw = localStorage.getItem(getSubKey(userId));
+  if (raw) {
+    try {
+      currentSubscription = JSON.parse(raw) as UserSubscription;
+    } catch {
+      currentSubscription = defaultSubscription();
+    }
+  } else {
+    currentSubscription = defaultSubscription();
+    persistSubscription();
+  }
+}
+
+function persistSubscription(): void {
+  if (currentUserId && typeof window !== "undefined") {
+    localStorage.setItem(getSubKey(currentUserId), JSON.stringify(currentSubscription));
+  }
+}
 
 export function getUserSubscription(): UserSubscription {
   return currentSubscription;
@@ -234,6 +270,14 @@ export function canCompose(): boolean {
   return currentSubscription.credits > 0;
 }
 
+export function getRemainingCompositions(): { monthly: number; credits: number } {
+  const plan = getCurrentPlan();
+  const monthlyLeft = plan.features.compositionsPerMonth === -1
+    ? Infinity
+    : Math.max(0, plan.features.compositionsPerMonth - currentSubscription.compositionsThisMonth);
+  return { monthly: monthlyLeft, credits: currentSubscription.credits };
+}
+
 export function useComposition(): boolean {
   if (!canCompose()) return false;
 
@@ -241,11 +285,13 @@ export function useComposition(): boolean {
   if (plan.features.compositionsPerMonth === -1 ||
       currentSubscription.compositionsThisMonth < plan.features.compositionsPerMonth) {
     currentSubscription.compositionsThisMonth++;
+    persistSubscription();
     return true;
   }
 
   if (currentSubscription.credits > 0) {
     currentSubscription.credits--;
+    persistSubscription();
     return true;
   }
 
@@ -265,12 +311,14 @@ export function simulateUpgrade(tier: SubscriptionTier, cycle: BillingCycle): vo
     billingCycle: cycle,
     expiresAt: new Date(Date.now() + (cycle === "yearly" ? 365 : 30) * 86400000).toISOString(),
   };
+  persistSubscription();
 }
 
 export function simulateCreditPurchase(packId: string): void {
   const pack = CREDIT_PACKS.find((p) => p.id === packId);
   if (pack) {
     currentSubscription.credits += pack.credits + pack.bonus;
+    persistSubscription();
   }
 }
 
