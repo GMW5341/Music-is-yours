@@ -9,10 +9,24 @@ import {
   applyProducerFeature,
   PRODUCER_FEATURES,
 } from "@/lib/ai-composer";
+import { composeWithKnowledge, LLMComposeContext } from "@/lib/llm-bridge";
+import {
+  addReferenceTrack,
+  getReferenceAnalysisSummary,
+  submitFeedback,
+  recordComposition,
+  getUserProfile,
+  ReferenceAnalysisSummary,
+} from "@/lib/user-fine-tuning";
+import { ReferenceTrackInput } from "@/lib/reference-analyzer";
 import TrackEditor from "@/components/TrackEditor";
 import ShareModal from "@/components/ShareModal";
+import ReferencePanel from "@/components/ReferencePanel";
+import ReasoningTracePanel from "@/components/ReasoningTracePanel";
+import PersonalizationPanel from "@/components/PersonalizationPanel";
 
 const ALL_GENRES = Object.entries(GENRE_INFO) as [Genre, typeof GENRE_INFO[Genre]][];
+const USER_ID = "user-1";
 
 export default function StudioPage() {
   const [prompt, setPrompt] = useState("");
@@ -23,35 +37,55 @@ export default function StudioPage() {
   const [showGenres, setShowGenres] = useState(false);
   const [showProducerPanel, setShowProducerPanel] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showReferencePanel, setShowReferencePanel] = useState(false);
+  const [showReasoningTrace, setShowReasoningTrace] = useState(false);
+  const [showPersonalization, setShowPersonalization] = useState(false);
   const [featureLog, setFeatureLog] = useState<string[]>([]);
+  const [composeContext, setComposeContext] = useState<LLMComposeContext | null>(null);
+  const [referenceSummary, setReferenceSummary] = useState<ReferenceAnalysisSummary | null>(null);
 
   const handlePromptChange = useCallback((value: string) => {
     setPrompt(value);
     setSuggestions(getTextSuggestions(value));
   }, []);
 
+  // 지식 기반 + 개인화된 작곡
   const handleCompose = useCallback(async () => {
     if (!prompt.trim()) return;
 
     setIsComposing(true);
-    // Simulate AI processing time
     await new Promise((r) => setTimeout(r, 1500));
 
-    const parsed = parseNaturalLanguagePrompt(prompt);
-    const request: ComposeRequest = {
+    const { song: newSong, context } = composeWithKnowledge(
       prompt,
-      genre: selectedGenre || parsed.genre || "pop",
-      mood: parsed.mood,
-      bpm: parsed.bpm,
-      key: parsed.key,
-      scale: parsed.scale,
-      duration: 30,
-    };
+      USER_ID,
+      selectedGenre || undefined
+    );
 
-    const newSong = composeFromRequest(request);
     setSong(newSong);
+    setComposeContext(context);
     setIsComposing(false);
-    setFeatureLog([`"${prompt}" - 곡이 생성되었습니다.`]);
+
+    const logs = [
+      `"${prompt}" - 곡이 생성되었습니다.`,
+      `지식 그래프: ${context.knowledgeResult.totalMatches}건 참조`,
+      `개인화 수준: ${(context.personalizedParams.personalizationLevel * 100).toFixed(0)}%`,
+    ];
+    if (context.relatedReferences.length > 0) {
+      logs.push(`참조 레퍼런스: ${context.relatedReferences.map((r) => r.title).join(", ")}`);
+    }
+    setFeatureLog(logs);
+
+    // 작곡 이력 기록
+    recordComposition(
+      USER_ID,
+      prompt,
+      newSong.genre,
+      newSong.bpm,
+      newSong.key,
+      newSong.scale,
+      []
+    );
   }, [prompt, selectedGenre]);
 
   const handleApplyFeature = useCallback(
@@ -63,37 +97,92 @@ export default function StudioPage() {
       const updated = applyProducerFeature(song, featureId);
       setSong(updated);
       setFeatureLog((prev) => [...prev, `${feature.nameKo} 적용 완료`]);
+
+      // 사용한 기능 기록
+      recordComposition(USER_ID, prompt, song.genre, song.bpm, song.key, song.scale, [featureId]);
     },
-    [song]
+    [song, prompt]
   );
 
-  const handleSuggestionClick = useCallback(
-    (suggestion: string) => {
-      if (suggestion.startsWith("+ ")) {
-        setPrompt((prev) => prev + " " + suggestion.slice(2));
-      } else {
-        setPrompt(suggestion);
-      }
-      setSuggestions(getTextSuggestions(suggestion));
-    },
-    []
-  );
+  const handleSuggestionClick = useCallback((suggestion: string) => {
+    if (suggestion.startsWith("+ ")) {
+      setPrompt((prev) => prev + " " + suggestion.slice(2));
+    } else {
+      setPrompt(suggestion);
+    }
+    setSuggestions(getTextSuggestions(suggestion));
+  }, []);
+
+  // 레퍼런스 곡 추가 콜백
+  const handleAddReference = useCallback((input: ReferenceTrackInput) => {
+    const dna = addReferenceTrack(USER_ID, input);
+    setReferenceSummary(getReferenceAnalysisSummary(USER_ID));
+    setFeatureLog((prev) => [
+      ...prev,
+      `레퍼런스 추가: "${input.title}" (${input.artist}) - DNA 분석 완료 (신뢰도: ${(dna.confidence * 100).toFixed(0)}%)`,
+    ]);
+  }, []);
+
+  // 피드백 콜백
+  const handleFeedback = useCallback((rating: number, liked: string[], disliked: string[]) => {
+    submitFeedback(USER_ID, { rating, liked, disliked });
+    setFeatureLog((prev) => [...prev, `피드백 반영 완료 (${rating}/5)`]);
+    setReferenceSummary(getReferenceAnalysisSummary(USER_ID));
+  }, []);
 
   return (
     <div className="min-h-screen px-4 py-6 max-w-7xl mx-auto">
-      <h1 className="text-2xl sm:text-3xl font-bold mb-6 gradient-text">AI 작곡 스튜디오</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl sm:text-3xl font-bold gradient-text">AI 작곡 스튜디오</h1>
+        <div className="flex gap-2">
+          <button
+            onClick={() => { setShowReferencePanel(!showReferencePanel); setShowPersonalization(false); }}
+            className={`glass-button text-xs flex items-center gap-1 ${showReferencePanel ? "border-primary-500/50 text-primary-300" : ""}`}
+          >
+            📎 레퍼런스
+          </button>
+          <button
+            onClick={() => { setShowPersonalization(!showPersonalization); setShowReferencePanel(false); }}
+            className={`glass-button text-xs flex items-center gap-1 ${showPersonalization ? "border-primary-500/50 text-primary-300" : ""}`}
+          >
+            🧬 개인화
+          </button>
+        </div>
+      </div>
+
+      {/* Reference Panel */}
+      {showReferencePanel && (
+        <ReferencePanel
+          onAddReference={handleAddReference}
+          summary={referenceSummary}
+          onClose={() => setShowReferencePanel(false)}
+        />
+      )}
+
+      {/* Personalization Panel */}
+      {showPersonalization && (
+        <PersonalizationPanel
+          userId={USER_ID}
+          summary={referenceSummary}
+          onFeedback={handleFeedback}
+          onClose={() => setShowPersonalization(false)}
+        />
+      )}
 
       {/* Prompt Input Area */}
       <div className="glass-card p-6 mb-6">
         <label className="block text-sm text-gray-400 mb-2">
           원하는 음악을 자연어로 설명하세요
+          <span className="text-[10px] text-gray-600 ml-2">
+            (지식 그래프 + 개인화 엔진이 자동 반영됩니다)
+          </span>
         </label>
         <div className="flex gap-3">
           <div className="flex-1 relative">
             <textarea
               value={prompt}
               onChange={(e) => handlePromptChange(e.target.value)}
-              placeholder="예: 신나는 K-Pop 스타일로, 밝고 에너지 넘치는 댄스곡 만들어줘. 사이드체인 넣고 베이스 강하게!"
+              placeholder="예: BTS Dynamite 같은 신나는 K-Pop 만들어줘. 밝고 에너지 넘치게, 사이드체인 넣고 베이스 강하게!"
               className="w-full bg-dark-100 border border-white/10 rounded-xl px-4 py-3 text-white
                 placeholder-gray-600 focus:outline-none focus:border-primary-500/50 resize-none h-24"
               onKeyDown={(e) => {
@@ -121,7 +210,6 @@ export default function StudioPage() {
           </button>
         </div>
 
-        {/* Text Suggestions */}
         <div className="flex flex-wrap gap-2 mt-3">
           {suggestions.map((s, i) => (
             <button
@@ -164,9 +252,7 @@ export default function StudioPage() {
             {ALL_GENRES.map(([genre, info]) => (
               <button
                 key={genre}
-                onClick={() => {
-                  setSelectedGenre(genre === selectedGenre ? null : genre);
-                }}
+                onClick={() => setSelectedGenre(genre === selectedGenre ? null : genre)}
                 className={`genre-chip flex items-center gap-1.5 text-xs ${
                   selectedGenre === genre ? "ring-2 ring-offset-1 ring-offset-dark-200" : ""
                 }`}
@@ -196,7 +282,9 @@ export default function StudioPage() {
               />
             ))}
           </div>
-          <p className="text-gray-400 animate-pulse">AI가 음악을 만들고 있습니다...</p>
+          <p className="text-gray-400 animate-pulse">
+            지식 그래프 검색 → 개인화 블렌딩 → AI 작곡 중...
+          </p>
         </div>
       )}
 
@@ -222,17 +310,40 @@ export default function StudioPage() {
                   <span>Key: {song.key} {song.scale}</span>
                   <span>{song.tracks.length} 트랙</span>
                 </div>
+                {composeContext && (
+                  <div className="flex items-center gap-2 mt-2 text-[10px] text-gray-600">
+                    <span>개인화: {(composeContext.personalizedParams.personalizationLevel * 100).toFixed(0)}%</span>
+                    <span>|</span>
+                    <span>지식그래프: {composeContext.knowledgeResult.totalMatches}건</span>
+                    {composeContext.relatedReferences.length > 0 && (
+                      <>
+                        <span>|</span>
+                        <span>참조: {composeContext.relatedReferences[0]?.title}</span>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap justify-end">
+                {composeContext && (
+                  <button
+                    onClick={() => setShowReasoningTrace(!showReasoningTrace)}
+                    className={`glass-button text-xs flex items-center gap-1 ${
+                      showReasoningTrace ? "border-primary-500/50 text-primary-300" : ""
+                    }`}
+                  >
+                    🧠 추론 과정
+                  </button>
+                )}
                 <button
                   onClick={() => setShowShareModal(true)}
-                  className="glass-button text-sm flex items-center gap-1"
+                  className="glass-button text-xs flex items-center gap-1"
                 >
                   📤 공유
                 </button>
                 <button
                   onClick={() => setShowProducerPanel(!showProducerPanel)}
-                  className={`glass-button text-sm flex items-center gap-1 ${
+                  className={`glass-button text-xs flex items-center gap-1 ${
                     showProducerPanel ? "border-primary-500/50 text-primary-300" : ""
                   }`}
                 >
@@ -241,6 +352,11 @@ export default function StudioPage() {
               </div>
             </div>
           </div>
+
+          {/* Reasoning Trace */}
+          {showReasoningTrace && composeContext && (
+            <ReasoningTracePanel context={composeContext} onClose={() => setShowReasoningTrace(false)} />
+          )}
 
           {/* Producer Feature Panel */}
           {showProducerPanel && (

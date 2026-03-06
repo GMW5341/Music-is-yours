@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { href: "/studio", label: "스튜디오", icon: "🎹" },
   { href: "/community", label: "커뮤니티", icon: "🌐" },
   { href: "/competition", label: "경쟁", icon: "🏆" },
+  { href: "/admin", label: "관리자", icon: "⚙️" },
 ];
 
 export default function Navigation() {
