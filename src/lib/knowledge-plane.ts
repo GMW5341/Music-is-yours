@@ -141,7 +141,7 @@ class MusicKnowledgeGraph {
     if (!target) return [];
 
     const results: SimilarityResult[] = [];
-    for (const [id, obj] of this.objects) {
+    for (const [id, obj] of Array.from(this.objects.entries())) {
       if (id === objectId) continue;
       const similarity = this.computeCosineSimilarity(target.embeddings, obj.embeddings);
       const dnaSimilarity = compareMusicDNA(target.musicDNA, obj.musicDNA);
@@ -300,7 +300,7 @@ class MusicKnowledgeGraph {
   private computeRelationships(newObj: UnifiedKnowledgeObject): KnowledgeRelation[] {
     const relations: KnowledgeRelation[] = [];
 
-    for (const [id, existing] of this.objects) {
+    for (const [id, existing] of Array.from(this.objects.entries())) {
       const similarity = this.computeCosineSimilarity(newObj.embeddings, existing.embeddings);
 
       if (similarity > 0.8) {
